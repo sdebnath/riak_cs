@@ -146,11 +146,11 @@ resolution_test() ->
 %%% Test API
 %%%===================================================================
 
--spec adds(twop_set()) -> set().
+-spec adds(twop_set()) -> stdlib_set().
 adds({Adds, _}) ->
     Adds.
 
--spec dels(twop_set()) -> set().
+-spec dels(twop_set()) -> stdlib_set().
 dels({_, Dels}) ->
     Dels.
 
