@@ -851,73 +851,51 @@ enable_zdbbl(Vsn) ->
     ok.
 
 create_user(Port, EmailAddr, Name) ->
-    create_user(Port, undefined, EmailAddr, Name).
+    create_user(Port, config("admin-key", "admin-secret", Port), EmailAddr, Name).
 
-create_user(Port, UserConfig, EmailAddr, Name) ->
+create_user(_Port, UserConfig, EmailAddr, Name) ->
     lager:debug("Trying to create user ~p", [EmailAddr]),
     Resource = "/riak-cs/user",
-    Date = httpd_util:rfc1123_date(),
-    Cmd="curl -s -H 'Content-Type: application/json' " ++
-        "-H 'Date: " ++ Date ++ "' " ++
-        case UserConfig of
-            undefined -> "";
-            _ ->
-                "-H 'Authorization: " ++
-                    make_authorization("POST", Resource, "application/json",
-                                       UserConfig, Date) ++
-                    "' "
-        end ++
-        "http://localhost:" ++
-        integer_to_list(Port) ++
-        Resource ++
-        " --data '{\"email\":\"" ++ EmailAddr ++  "\", \"name\":\"" ++ Name ++"\"}'",
-    lager:debug("Cmd: ~p", [Cmd]),
+    ReqBody = "{\"email\":\"" ++ EmailAddr ++  "\", \"name\":\"" ++ Name ++"\"}",
     Delay = rt_config:get(rt_retry_delay),
     Retries = rt_config:get(rt_max_wait_time) div Delay,
-    OutputFun = fun() -> rt:cmd(Cmd) end,
-    Condition = fun({Status, Res}) ->
-                        lager:debug("Return (~p), Res: ~p", [Status, Res]),
-                        Status =:= 0 andalso Res /= []
+    OutputFun = fun() -> catch erlcloud_s3:s3_request(
+                                 UserConfig, post, "", Resource, [], "",
+                                 {ReqBody, "application/json"}, [])
                 end,
-    {_Status, Output} = wait_until(OutputFun, Condition, Retries, Delay),
-    lager:debug("Create user output=~p~n",[Output]),
-    {struct, JsonData} = mochijson2:decode(Output),
-    KeyId = binary_to_list(proplists:get_value(<<"key_id">>, JsonData)),
-    KeySecret = binary_to_list(proplists:get_value(<<"key_secret">>, JsonData)),
-    Id = binary_to_list(proplists:get_value(<<"id">>, JsonData)),
+    Condition = fun({'EXIT', Res}) ->
+                        lager:debug("create_user failing, Res: ~p", [Res]),
+                        false;
+                   ({_ResHeader, _ResBody}) ->
+                        true
+                end,
+    {_ResHeader, ResBody} = wait_until(OutputFun, Condition, Retries, Delay),
+    lager:debug("ResBody: ~s", [ResBody]),
+    JsonData = mochijson2:decode(ResBody),
+    [KeyId, KeySecret, Id] = [binary_to_list(json_get([K], JsonData)) ||
+                                 K <- [<<"key_id">>, <<"key_secret">>, <<"id">>]],
     {KeyId, KeySecret, Id}.
 
-update_user(UserConfig, Port, Resource, ContentType, UpdateDoc) ->
-    Date = httpd_util:rfc1123_date(),
-    Cmd="curl -s -X PUT -H 'Date: " ++ Date ++
-        "' -H 'Content-Type: " ++ ContentType ++
-        "' -H 'Authorization: " ++
-        make_authorization("PUT", Resource, ContentType, UserConfig, Date) ++
-        "' http://localhost:" ++ integer_to_list(Port) ++
-        Resource ++ " --data-binary " ++ UpdateDoc,
-    Delay = rt_config:get(rt_retry_delay),
-    Retries = rt_config:get(rt_max_wait_time) div Delay,
-    OutputFun = fun() -> os:cmd(Cmd) end,
-    Condition = fun(Res) -> Res /= [] end,
-    Output = wait_until(OutputFun, Condition, Retries, Delay),
-    lager:debug("Update user output=~p~n",[Output]),
-    Output.
+update_user(UserConfig, _Port, Resource, ContentType, UpdateDoc) ->
+    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
+                              UserConfig, put, "", Resource, [], "",
+                              {UpdateDoc, ContentType}, []),
+    lager:debug("ResBody: ~s", [ResBody]),
+    ResBody.
 
-list_users(UserConfig, Port, Resource, AcceptContentType) ->
-    Date = httpd_util:rfc1123_date(),
-    Cmd="curl -s -H 'Date: " ++ Date ++
-        "' -H 'Accept: " ++ AcceptContentType ++
-        "' -H 'Authorization: " ++
-        make_authorization("GET", Resource, "", UserConfig, Date) ++
-        "' http://localhost:" ++ integer_to_list(Port) ++
-        Resource,
-    Delay = rt_config:get(rt_retry_delay),
-    Retries = rt_config:get(rt_max_wait_time) div Delay,
-    OutputFun = fun() -> os:cmd(Cmd) end,
-    Condition = fun(Res) -> Res /= [] end,
-    Output = wait_until(OutputFun, Condition, Retries, Delay),
-    lager:debug("List users output=~p~n",[Output]),
-    Output.
+get_user(UserConfig, _Port, Resource, AcceptContentType) ->
+    lager:debug("Retreiving user record"),
+    Headers = [{"Accept", AcceptContentType}],
+    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
+                              UserConfig, get, "", Resource, [], "", "", Headers),
+    lager:debug("ResBody: ~s", [ResBody]),
+    ResBody.
+
+list_users(UserConfig, _Port, Resource, AcceptContentType) ->
+    Headers = [{"Accept", AcceptContentType}],
+    {_ResHeader, ResBody} = erlcloud_s3:s3_request(
+                              UserConfig, get, "", Resource, [], "", "", Headers),
+    ResBody.
 
 assert_error_log_empty(N) ->
     assert_error_log_empty(current, N).
