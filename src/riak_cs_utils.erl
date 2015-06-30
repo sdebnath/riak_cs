@@ -163,7 +163,6 @@ close_riak_connection(Pool, Pid) ->
 -spec delete_object(binary(), binary(), riak_client()) ->
                            {ok, [binary()]} | {error, term()}.
 delete_object(Bucket, Key, RcPid) ->
-    ok = riak_cs_stats:update_with_start([object, delete], os:timestamp()),
     riak_cs_gc:gc_active_manifests(Bucket, Key, RcPid).
 
 -spec encode_term(term()) -> binary().

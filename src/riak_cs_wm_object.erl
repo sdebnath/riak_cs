@@ -244,7 +244,9 @@ handle_delete_object({error, Error}, UserName, BFile_str, RD, Ctx) ->
     _ = lager:error("delete object failed with reason: ~p", [Error]),
     riak_cs_dtrace:dt_object_return(?MODULE, <<"object_delete">>, [0], [UserName, BFile_str]),
     {false, RD, Ctx};
-handle_delete_object({ok, _UUIDsMarkedforDelete}, UserName, BFile_str, RD, Ctx) ->
+handle_delete_object({ok, _UUIDsMarkedforDelete}, UserName, BFile_str, RD,
+                     #context{start_time=StartTime} = Ctx) ->
+    ok = riak_cs_stats:update_with_start([object, delete], StartTime),
     riak_cs_dtrace:dt_object_return(?MODULE, <<"object_delete">>, [1], [UserName, BFile_str]),
     {true, RD, Ctx}.
 
@@ -344,7 +346,8 @@ handle_normal_put(RD, Ctx) ->
 -spec handle_copy_put(#wm_reqdata{}, #context{}, binary(), binary()) ->
                                {boolean()|{halt, integer()}, #wm_reqdata{}, #context{}}.
 handle_copy_put(RD, Ctx, SrcBucket, SrcKey) ->
-    #context{local_context=LocalCtx,
+    #context{start_time=StartTime,
+             local_context=LocalCtx,
              response_module=ResponseMod,
              acl=Acl,
              riak_client=RcPid} = Ctx,
@@ -387,6 +390,7 @@ handle_copy_put(RD, Ctx, SrcBucket, SrcKey) ->
                         {ok, DstManifest} = riak_cs_copy_object:copy(PutFsmPid, SrcManifest, ReadRcPid, FDWatcher),
                         ETag = riak_cs_manifest:etag(DstManifest),
                         RD2 = wrq:set_resp_header("ETag", ETag, RD),
+                        ok = riak_cs_stats:update_with_start([object, put_copy], StartTime),
                         ResponseMod:copy_object_response(DstManifest, RD2,
                                                          Ctx#context{local_context=LocalCtx});
                     {true, _RD, _OtherCtx} ->
