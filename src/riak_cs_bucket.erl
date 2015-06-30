@@ -699,6 +699,7 @@ serialized_bucket_op(Bucket, BagId, ACL, User, UserObj, BucketOp, StatName, RcPi
                     BucketRecord = bucket_record(Bucket, BucketOp),
                     case update_user_buckets(User, BucketRecord) of
                         {ok, ignore} when BucketOp == update_acl ->
+                            %% TODO: FIX
                             ok = riak_cs_stats:update_with_start(StatName,
                                                                  StartTime),
                             OpResult;
@@ -706,6 +707,7 @@ serialized_bucket_op(Bucket, BagId, ACL, User, UserObj, BucketOp, StatName, RcPi
                             OpResult;
                         {ok, UpdUser} ->
                             X = riak_cs_user:save_user(UpdUser, UserObj, RcPid),
+                            %% TODO: FIX
                             ok = riak_cs_stats:update_with_start(StatName,
                                                                  StartTime),
                             X

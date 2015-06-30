@@ -93,7 +93,8 @@ to_xml(RD, Ctx) ->
     handle_read_request(RD, Ctx).
 
 %% @private
-handle_read_request(RD, Ctx=#context{user=User,
+handle_read_request(RD, Ctx=#context{start_time=StartTime,
+                                     user=User,
                                      bucket=Bucket}) ->
     riak_cs_dtrace:dt_bucket_entry(?MODULE, <<"bucket_head">>,
                                       [], [riak_cs_wm_utils:extract_name(User), Bucket]),
@@ -109,12 +110,14 @@ handle_read_request(RD, Ctx=#context{user=User,
         [_BucketRecord] ->
             riak_cs_dtrace:dt_bucket_return(?MODULE, <<"bucket_head">>,
                                                [200], [riak_cs_wm_utils:extract_name(User), Bucket]),
+            ok = riak_cs_stats:update_with_start([bucket, head], StartTime),
             {{halt, 200}, HeadRD, Ctx}
     end.
 
 %% @doc Process request body on `PUT' request.
 -spec accept_body(#wm_reqdata{}, #context{}) -> {{halt, integer()}, #wm_reqdata{}, #context{}}.
-accept_body(RD, Ctx=#context{user=User,
+accept_body(RD, Ctx=#context{start_time=StartTime,
+                             user=User,
                              acl=ACL,
                              user_object=UserObj,
                              bucket=Bucket,
@@ -132,6 +135,7 @@ accept_body(RD, Ctx=#context{user=User,
         ok ->
             riak_cs_dtrace:dt_bucket_return(?MODULE, <<"bucket_create">>,
                                                [200], [riak_cs_wm_utils:extract_name(User), Bucket]),
+            ok = riak_cs_stats:update_with_start([bucket, create], StartTime),
             {{halt, 200}, RD, Ctx};
         {error, Reason} ->
             Code = ResponseMod:status_code(Reason),
@@ -143,7 +147,8 @@ accept_body(RD, Ctx=#context{user=User,
 %% @doc Callback for deleting a bucket.
 -spec delete_resource(#wm_reqdata{}, #context{}) ->
                              {boolean() | {'halt', term()}, #wm_reqdata{}, #context{}}.
-delete_resource(RD, Ctx=#context{user=User,
+delete_resource(RD, Ctx=#context{start_time=StartTime,
+                                 user=User,
                                  user_object=UserObj,
                                  response_module=ResponseMod,
                                  bucket=Bucket,
@@ -157,6 +162,7 @@ delete_resource(RD, Ctx=#context{user=User,
         ok ->
             riak_cs_dtrace:dt_bucket_return(?MODULE, <<"bucket_delete">>,
                                                [200], [riak_cs_wm_utils:extract_name(User), Bucket]),
+            ok = riak_cs_stats:update_with_start([bucket, delete], StartTime),
             {true, RD, Ctx};
         {error, Reason} ->
             Code = ResponseMod:status_code(Reason),
