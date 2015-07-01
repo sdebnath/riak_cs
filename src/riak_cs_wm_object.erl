@@ -202,7 +202,7 @@ produce_body(RD, Ctx=#context{rc_pool=RcPool,
     if Method == 'HEAD' ->
             riak_cs_dtrace:dt_object_return(?MODULE, <<"object_head">>,
                                             [], [UserName, BFile_str]),
-            ok = riak_cs_stats:update_with_start([object, head], StartTime);
+            ok = riak_cs_stats:update_with_start(object_head, StartTime);
        true ->
             ok
     end,
@@ -246,7 +246,7 @@ handle_delete_object({error, Error}, UserName, BFile_str, RD, Ctx) ->
     {false, RD, Ctx};
 handle_delete_object({ok, _UUIDsMarkedforDelete}, UserName, BFile_str, RD,
                      #context{start_time=StartTime} = Ctx) ->
-    ok = riak_cs_stats:update_with_start([object, delete], StartTime),
+    ok = riak_cs_stats:update_with_start(object_delete, StartTime),
     riak_cs_dtrace:dt_object_return(?MODULE, <<"object_delete">>, [1], [UserName, BFile_str]),
     {true, RD, Ctx}.
 
@@ -390,7 +390,7 @@ handle_copy_put(RD, Ctx, SrcBucket, SrcKey) ->
                         {ok, DstManifest} = riak_cs_copy_object:copy(PutFsmPid, SrcManifest, ReadRcPid, FDWatcher),
                         ETag = riak_cs_manifest:etag(DstManifest),
                         RD2 = wrq:set_resp_header("ETag", ETag, RD),
-                        ok = riak_cs_stats:update_with_start([object, put_copy], StartTime),
+                        ok = riak_cs_stats:update_with_start(object_put_copy, StartTime),
                         ResponseMod:copy_object_response(DstManifest, RD2,
                                                          Ctx#context{local_context=LocalCtx});
                     {true, _RD, _OtherCtx} ->
@@ -469,7 +469,7 @@ finalize_request(RD,
             {error, Reason} ->
                 ResponseMod:api_error(Reason, RD, Ctx)
         end,
-    ok = riak_cs_stats:update_with_start([object, put], StartTime),
+    ok = riak_cs_stats:update_with_start(object_put, StartTime),
     riak_cs_dtrace:dt_wm_return(?MODULE, <<"finalize_request">>, [S], [UserName, BFile_str]),
     riak_cs_dtrace:dt_object_return(?MODULE, <<"object_put">>, [S], [UserName, BFile_str]),
     Response.

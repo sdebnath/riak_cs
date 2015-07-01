@@ -110,7 +110,7 @@ handle_read_request(RD, Ctx=#context{start_time=StartTime,
         [_BucketRecord] ->
             riak_cs_dtrace:dt_bucket_return(?MODULE, <<"bucket_head">>,
                                                [200], [riak_cs_wm_utils:extract_name(User), Bucket]),
-            ok = riak_cs_stats:update_with_start([bucket, head], StartTime),
+            ok = riak_cs_stats:update_with_start(bucket_head, StartTime),
             {{halt, 200}, HeadRD, Ctx}
     end.
 
@@ -135,7 +135,7 @@ accept_body(RD, Ctx=#context{start_time=StartTime,
         ok ->
             riak_cs_dtrace:dt_bucket_return(?MODULE, <<"bucket_create">>,
                                                [200], [riak_cs_wm_utils:extract_name(User), Bucket]),
-            ok = riak_cs_stats:update_with_start([bucket, create], StartTime),
+            ok = riak_cs_stats:update_with_start(bucket_create, StartTime),
             {{halt, 200}, RD, Ctx};
         {error, Reason} ->
             Code = ResponseMod:status_code(Reason),
@@ -162,7 +162,7 @@ delete_resource(RD, Ctx=#context{start_time=StartTime,
         ok ->
             riak_cs_dtrace:dt_bucket_return(?MODULE, <<"bucket_delete">>,
                                                [200], [riak_cs_wm_utils:extract_name(User), Bucket]),
-            ok = riak_cs_stats:update_with_start([bucket, delete], StartTime),
+            ok = riak_cs_stats:update_with_start(bucket_delete, StartTime),
             {true, RD, Ctx};
         {error, Reason} ->
             Code = ResponseMod:status_code(Reason),

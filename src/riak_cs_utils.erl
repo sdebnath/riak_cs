@@ -469,7 +469,7 @@ set_object_acl(Bucket, Key, Manifest, Acl, RcPid) ->
     Res = riak_cs_manifest_fsm:update_manifest_with_confirmation(ManiPid, UpdManifest),
     riak_cs_manifest_fsm:stop(ManiPid),
     if Res == ok ->
-            ok = riak_cs_stats:update_with_start([object, put_acl], StartTime);
+            ok = riak_cs_stats:update_with_start(object_put_acl, StartTime);
        true ->
             ok
     end,
